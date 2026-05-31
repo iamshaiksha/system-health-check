@@ -17,6 +17,7 @@ A production-grade Python REST API that evaluates the health of a system compose
 - [Running Tests](#running-tests)
 - [Infrastructure (Terraform)](#infrastructure-terraform)
 - [CI/CD Pipeline](#cicd-pipeline)
+- [Production Security Considerations](#production-security-considerations)
 - [AI Tools Usage](#ai-tools-usage)
 
 ---
@@ -298,12 +299,27 @@ pip install -r requirements.txt
 pytest tests/ -v --tb=short
 ```
 
+```bash
+# With coverage report
+pytest tests/ --cov=app --cov-report=term-missing
+```
+
 15 test cases covering:
 - DAG construction and edge validation
 - BFS ordering (linear, diamond, disconnected)
 - Cycle detection
 - API endpoint contracts (happy path, all-healthy, cycle, single node)
 - Liveness/readiness/metrics probes
+
+**Coverage summary:**
+
+| Module | Coverage | Notes |
+|---|---|---|
+| `app/main.py` | 81% | Core API logic, BFS, health evaluation |
+| `app/models.py` | 100% | All Pydantic models fully covered |
+| `app/observability.py` | 20% | Logging/tracing setup — better verified via integration test |
+| `app/visualizer.py` | 19% | Matplotlib rendering — verified manually via `/health-check/visualize` |
+| **Total** | **58%** | |
 
 ---
 
@@ -338,6 +354,22 @@ On **merge to main**:
 - Run tests
 - Build Docker image → push to GHCR
 - `terraform apply` (requires `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets)
+
+---
+
+## Production Security Considerations
+
+Authentication and security hardening are intentionally excluded from this assignment scope. In a production deployment the following would be added:
+
+| Layer | Mechanism |
+|---|---|
+| **API authentication** | OAuth2 / JWT bearer tokens via an API Gateway (AWS API Gateway or Kong) |
+| **Network perimeter** | AWS WAF in front of the ALB to block malicious traffic |
+| **Secret management** | AWS Secrets Manager for any credentials — never environment variables in plain text |
+| **Rate limiting** | `slowapi` middleware (one-liner addition to FastAPI) to prevent abuse |
+| **TLS** | ACM certificate on the ALB listener; all traffic HTTPS only |
+| **Least-privilege IAM** | ECS task role scoped to only the AWS resources it needs |
+| **Image scanning** | ECR scan-on-push already enabled in Terraform |
 
 ---
 
